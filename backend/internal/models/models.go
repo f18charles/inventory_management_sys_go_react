@@ -53,6 +53,8 @@ type Category struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	Name        string    `gorm:"unique;not null" json:"name"`
 	Description string    `gorm:"not null" json:"description"`
+
+	Products []Product `gorm:"foreignKey:CategoryID" json:"products,omitempty"`
 }
 
 type Product struct {
@@ -67,7 +69,7 @@ type Product struct {
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
-	Category    Category    `gorm:"foreignKey:CategoryID" json:"category"`
+	Category Category `gorm:"foreignKey:CategoryID" json:"category"`
 }
 
 type Inventory struct {
@@ -75,9 +77,9 @@ type Inventory struct {
 	ProductID    uuid.UUID `gorm:"type:uuid; not null" json:"product_id"`
 	Quantity     int       `gorm:"not null" json:"quantity"`
 	ReorderLevel int       `gorm:"not null" json:"reorder_level"`
-	LastUpdated  time.Time `gorm:"not null" json:"last_updated"`
+	LastUpdated  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
-	Product    Product    `gorm:"foreignKey:ProductID" json:"product"`
+	Product Product `gorm:"foreignKey:ProductID" json:"product"`
 }
 
 type PurchaseStatus string
@@ -95,10 +97,11 @@ type Purchase struct {
 	PurchaseDate time.Time      `gorm:"not null" json:"purchase_date"`
 	Status       PurchaseStatus `gorm:"not null" json:"status"`
 	TotalAmount  int64          `gorm:"not null" json:"total_amount"`
-	Notes        string         `gorm:"null" json:"notes"`
+	Notes        string         `json:"notes"`
 
-	Supplier    Supplier    `gorm:"foreignKey:SupplierID" json:"supplier"`
-	User User `gorm:"foreignKey:UserID" json:"-"`
+	Supplier Supplier       `gorm:"foreignKey:SupplierID" json:"supplier"`
+	User     User           `gorm:"foreignKey:UserID" json:"-"`
+	Items    []PurchaseItem `gorm:"foreignKey:PurchaseID"`
 }
 
 type PurchaseItem struct {
@@ -117,21 +120,32 @@ type SaleStatus string
 
 const (
 	SalePending   SaleStatus = "pending"
-	SaleReceived  SaleStatus = "received"
+	SaleCompleted SaleStatus = "completed"
 	SaleCancelled SaleStatus = "cancelled"
+	SaleRefunded  SaleStatus = "refunded"
+)
+
+type PaymentMethod string
+
+const (
+	Cash         PaymentMethod = "cash"
+	Card         PaymentMethod = "card"
+	MobileMoney  PaymentMethod = "mobile_money"
+	BankTransfer PaymentMethod = "bank_transfer"
 )
 
 type Sale struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	CustomerID    uuid.UUID  `gorm:"type:uuid; not null" json:"customer_id"`
-	UserID        uuid.UUID  `gorm:"type:uuid; not null" json:"user_id"`
-	SaleDate      time.Time  `gorm:"not null" json:"sale_date"`
-	Status        SaleStatus `gorm:"not null" json:"status"`
-	TotalAmount   int64      `gorm:"not null" json:"total_amount"`
-	PaymentMethod string     `gorm:"not null" json:"payment_method"`
+	ID            uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
+	CustomerID    uuid.UUID     `gorm:"type:uuid; not null" json:"customer_id"`
+	UserID        uuid.UUID     `gorm:"type:uuid; not null" json:"user_id"`
+	SaleDate      time.Time     `gorm:"not null" json:"sale_date"`
+	Status        SaleStatus    `gorm:"not null" json:"status"`
+	TotalAmount   int64         `gorm:"not null" json:"total_amount"`
+	PaymentMethod PaymentMethod `gorm:"not null" json:"payment_method"`
 
-	Customer Customer `gorm:"foreignKey:CustomerID" json:"customer"`
-	User     User     `gorm:"foreignKey:UserID" json:"-"`
+	Customer Customer   `gorm:"foreignKey:CustomerID" json:"customer"`
+	User     User       `gorm:"foreignKey:UserID" json:"-"`
+	Items    []SaleItem `gorm:"foreignKey:SaleID"`
 }
 
 type SaleItem struct {
