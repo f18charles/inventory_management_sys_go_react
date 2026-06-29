@@ -4,7 +4,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
+
+type BaseModel struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
+	if b.ID == uuid.Nil {
+		b.ID = uuid.New()
+	}
+	return nil
+}
 
 type Roles string
 
@@ -15,7 +29,8 @@ const (
 )
 
 type User struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	FirstName string    `gorm:"not null" json:"first_name"`
 	LastName  string    `gorm:"not null" json:"last_name"`
 	Username  string    `gorm:"unique;not null" json:"username"`
@@ -23,34 +38,31 @@ type User struct {
 	PassHash  string    `gorm:"not null" json:"-"`
 	Role      Roles     `gorm:"not null" json:"role"`
 	IsActive  bool      `gorm:"default:true" json:"is_active"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 type Supplier struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	CompanyName   string    `gorm:"not null" json:"company_name"`
 	ContactPerson string    `gorm:"not null" json:"contact_person"`
 	Phone         string    `gorm:"not null" json:"phone"`
 	Email         string    `gorm:"unique;not null" json:"email"`
 	Address       string    `gorm:"not null" json:"address"`
-	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt     time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 type Customer struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	
+	
 	FirstName string    `gorm:"not null" json:"first_name"`
 	LastName  string    `gorm:"not null" json:"last_name"`
 	Phone     string    `gorm:"not null" json:"phone"`
 	Email     string    `gorm:"unique;not null" json:"email"`
 	Address   string    `gorm:"not null" json:"address"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 type Category struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	Name        string    `gorm:"unique;not null" json:"name"`
 	Description string    `gorm:"not null" json:"description"`
 
@@ -58,7 +70,8 @@ type Category struct {
 }
 
 type Product struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	CategoryID  uuid.UUID `gorm:"type:uuid; not null" json:"category_id"`
 	SKU         string    `gorm:"unique;not null" json:"sku"`
 	Name        string    `gorm:"not null" json:"name"`
@@ -66,18 +79,16 @@ type Product struct {
 	UnitPrice   int64     `gorm:"not null" json:"unit_price"`
 	CostPrice   int64     `gorm:"not null" json:"cost_price"`
 	IsActive    bool      `gorm:"default:true" json:"is_active"`
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	Category Category `gorm:"foreignKey:CategoryID" json:"category"`
 }
 
 type Inventory struct {
-	ID           uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	ProductID    uuid.UUID `gorm:"type:uuid; not null" json:"product_id"`
 	Quantity     int       `gorm:"not null" json:"quantity"`
 	ReorderLevel int       `gorm:"not null" json:"reorder_level"`
-	LastUpdated  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	Product Product `gorm:"foreignKey:ProductID" json:"product"`
 }
@@ -91,7 +102,8 @@ const (
 )
 
 type Purchase struct {
-	ID           uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	SupplierID   uuid.UUID      `gorm:"type:uuid; not null" json:"supplier_id"`
 	UserID       uuid.UUID      `gorm:"type:uuid; not null" json:"user_id"`
 	PurchaseDate time.Time      `gorm:"not null" json:"purchase_date"`
@@ -105,7 +117,8 @@ type Purchase struct {
 }
 
 type PurchaseItem struct {
-	ID         uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	PurchaseID uuid.UUID `gorm:"type:uuid; not null" json:"purchase_id"`
 	ProductID  uuid.UUID `gorm:"type:uuid; not null" json:"product_id"`
 	Quantity   int       `gorm:"not null" json:"quantity"`
@@ -135,7 +148,8 @@ const (
 )
 
 type Sale struct {
-	ID            uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	CustomerID    uuid.UUID     `gorm:"type:uuid; not null" json:"customer_id"`
 	UserID        uuid.UUID     `gorm:"type:uuid; not null" json:"user_id"`
 	SaleDate      time.Time     `gorm:"not null" json:"sale_date"`
@@ -149,7 +163,8 @@ type Sale struct {
 }
 
 type SaleItem struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	BaseModel
+	
 	SaleID    uuid.UUID `gorm:"type:uuid; not null" json:"sale_id"`
 	ProductID uuid.UUID `gorm:"type:uuid; not null" json:"product_id"`
 	Quantity  int       `gorm:"not null" json:"quantity"`
