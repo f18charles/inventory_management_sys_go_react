@@ -51,7 +51,7 @@ type Supplier struct {
 }
 
 type Customer struct {
-	
+	BaseModel
 	
 	FirstName string    `gorm:"not null" json:"first_name"`
 	LastName  string    `gorm:"not null" json:"last_name"`
