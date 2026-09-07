@@ -1,0 +1,17 @@
+// Makefile (excerpt) — regeneration is a workflow step, not automatic.
+
+// swag init parses //@ annotation comments starting from cmd/server/main.go
+// and regenerates docs/docs.go + docs/swagger.json + docs/swagger.yaml.
+// It does NOT run itself when you save a file.
+
+swagger:
+	swag init -g cmd/server/main.go -o docs
+
+// Recommended: run this before every commit that touches a handler's
+// annotations, and add a CI check that fails the build if `swag init`
+// would produce a diff against what's committed (catches "forgot to
+// regenerate" before it reaches main):
+
+// .github/workflows/ci.yml (excerpt)
+//   - run: swag init -g cmd/server/main.go -o docs
+//   - run: git diff --exit-code docs/ || (echo "Swagger docs are stale — run 'make swagger' and commit" && exit 1)

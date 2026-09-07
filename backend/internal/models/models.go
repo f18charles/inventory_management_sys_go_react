@@ -11,6 +11,7 @@ type BaseModel struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	DeletdAt  time.Time `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
@@ -61,26 +62,25 @@ type Customer struct {
 }
 
 type Category struct {
-	BaseModel
-	
-	Name        string    `gorm:"unique;not null" json:"name"`
-	Description string    `gorm:"not null" json:"description"`
-
-	Products []Product `gorm:"foreignKey:CategoryID" json:"products,omitempty"`
+    BaseModel
+    
+    Name        string    `gorm:"uniqueIndex:idx_categories_name_unique,where:deleted_at IS NULL;not null" json:"name"`
+    Description string    `gorm:"not null" json:"description"`
+    Products    []Product `gorm:"foreignKey:CategoryID" json:"products,omitempty"`
 }
 
 type Product struct {
-	BaseModel
-	
-	CategoryID  uuid.UUID `gorm:"type:uuid; not null" json:"category_id"`
-	SKU         string    `gorm:"unique;not null" json:"sku"`
-	Name        string    `gorm:"not null" json:"name"`
-	Description string    `gorm:"not null" json:"description"`
-	UnitPrice   int64     `gorm:"not null" json:"unit_price"`
-	CostPrice   int64     `gorm:"not null" json:"cost_price"`
-	IsActive    bool      `gorm:"default:true" json:"is_active"`
-
-	Category Category `gorm:"foreignKey:CategoryID" json:"category"`
+    BaseModel
+    
+    CategoryID  uuid.UUID `gorm:"type:uuid;not null;index" json:"category_id"`
+    SKU         string    `gorm:"uniqueIndex:idx_products_sku_unique,where:deleted_at IS NULL;not null" json:"sku"`
+    Name        string    `gorm:"not null;index" json:"name"`
+    Description string    `gorm:"not null" json:"description"`
+    UnitPrice   int64     `gorm:"not null" json:"unit_price"` // Store in cents
+    CostPrice   int64     `gorm:"not null" json:"cost_price"` // Store in cents
+    IsActive    bool      `gorm:"default:true;index" json:"is_active"`
+    
+    Category    Category  `gorm:"foreignKey:CategoryID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"category,omitempty"`
 }
 
 type Inventory struct {
