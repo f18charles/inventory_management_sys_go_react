@@ -6,8 +6,10 @@ CREATE TABLE purchase_items (
     unit_cost BIGINT NOT NULL CHECK (unit_cost >= 0),
     sub_total BIGINT NOT NULL CHECK (sub_total >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_purchase_items_purchase_id ON purchase_items(purchase_id);
 CREATE INDEX idx_purchase_items_product_id ON purchase_items(product_id);
+CREATE INDEX idx_purchase_items_deleted_at ON purchase_items(deleted_at);
