@@ -10,35 +10,35 @@ Rule for every phase: don't start the next one until the current phase compiles,
 
 ### Phase 1: Database
 - [x] PostgreSQL setup
-- [ ] Migration system (`golang-migrate`)
-- [ ] Users migration
-- [ ] Categories migration
-- [ ] Suppliers migration
-- [ ] Customers migration
-- [ ] Products migration
-- [ ] Inventory migration
-- [ ] Purchases migration
-- [ ] Purchase items migration
-- [ ] Sales migration
-- [ ] Sale items migration
-- [ ] Database indexes
-- [ ] Foreign keys
-- [ ] Database constraints
+- [x] Migration system (`golang-migrate`)
+- [x] Users migration
+- [x] Categories migration
+- [x] Suppliers migration
+- [x] Customers migration
+- [x] Products migration
+- [x] Inventory migration
+- [x] Purchases migration
+- [x] Purchase items migration
+- [x] Sales migration
+- [x] Sale items migration
+- [x] Database indexes
+- [x] Foreign keys
+- [x] Database constraints
 - [ ] Seed data
 
 ### Phase 2: Backend Foundation
-- [ ] Configuration loading (env vars)
-- [ ] PostgreSQL connection
-- [ ] GORM setup
-- [ ] Gin server + router setup
-- [ ] Route groups (`/api/v1/...`)
-- [ ] Error handling middleware
-- [ ] Request validation (Gin binding)
-- [ ] Response formatting (`data` / `error` envelope)
-- [ ] Structured logger setup (`zerolog`, console output in dev / JSON in prod)
-- [ ] Request-logging middleware (method, path, status, latency, request ID)
-- [ ] Panic-recovery middleware that logs at `error` level instead of crashing silently
-- [ ] Middleware (CORS, etc.)
+- [x] Configuration loading (env vars)
+- [x] PostgreSQL connection
+- [x] GORM setup
+- [x] Gin server + router setup
+- [x] Route groups (`/api/v1/...`)
+- [x] Error handling middleware
+- [x] Request validation (Gin binding)
+- [x] Response formatting (`data` / `error` envelope)
+- [x] Structured logger setup (`zerolog`, console output in dev / JSON in prod)
+- [x] Request-logging middleware (method, path, status, latency, request ID)
+- [x] Panic-recovery middleware that logs at `error` level instead of crashing silently
+- [x] Middleware (CORS, etc.)
 
 ### Phase 3: Authentication
 - [ ] User repository
