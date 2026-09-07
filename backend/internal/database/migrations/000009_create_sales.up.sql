@@ -7,9 +7,11 @@ CREATE TABLE sales (
     total_amount BIGINT NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
     payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'card', 'mobile_money', 'bank_transfer')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_sales_customer_id ON sales(customer_id);
 CREATE INDEX idx_sales_user_id ON sales(user_id);
 CREATE INDEX idx_sales_status ON sales(status);
+CREATE INDEX idx_sales_deleted_at ON sales(deleted_at);
