@@ -1,10 +1,10 @@
-CREATE TABLE suppliers(
-    id TEXT PRIMARY KEY,
+CREATE TABLE suppliers (
+    id UUID PRIMARY KEY,
     company_name TEXT NOT NULL,
     contact_person TEXT NOT NULL,
-    phone VARCHAR NOT NULL,
-    email VARCHAR NOT NULL,
-    address VARCHAR NOT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    address TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
