@@ -6,8 +6,10 @@ CREATE TABLE sale_items (
     unit_price BIGINT NOT NULL CHECK (unit_price >= 0),
     sub_total BIGINT NOT NULL CHECK (sub_total >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
 CREATE INDEX idx_sale_items_product_id ON sale_items(product_id);
+CREATE INDEX idx_sale_items_deleted_at ON sale_items(deleted_at);
