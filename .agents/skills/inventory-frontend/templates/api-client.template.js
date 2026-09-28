@@ -2,7 +2,7 @@
 //
 // Single shared axios instance for the whole app. Nothing else in the
 // codebase should import axios or call it directly — always go through
-// this instance (or, better, through a resource hook in src/api/).
+// this instance, and prefer a resource hook in src/hooks/.
 
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';

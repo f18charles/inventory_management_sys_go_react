@@ -1,46 +1,51 @@
-// internal/services/sale_service.go
+// internal/sale/service.go
 //
-// Services: business logic + transaction boundaries. Depend on repository
-// INTERFACES (never a concrete GORM type) so tests can mock them. Never
-// import "gin" or reference *gin.Context. Never return http.Status*.
+// Services live INSIDE the owning domain package and own business logic plus
+// transaction boundaries. They depend on repository INTERFACES — the domain's
+// own and any cross-domain dependency — never on concrete GORM types or on
+// other domains' services. They never import "gin" or return http.Status*.
 
-package services
+package sale
 
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 
-	"inventory/internal/models"
-	"inventory/internal/repositories"
-	"inventory/internal/utils/logger"
+	"i_m_s/internal/customer"
+	"i_m_s/internal/inventory"
+	"i_m_s/internal/models"
+	"i_m_s/internal/product"
+	"i_m_s/internal/utils/logger"
 )
 
-type SaleService struct {
-	db            *gorm.DB
-	saleRepo      repositories.SaleRepository
-	productRepo   repositories.ProductRepository
-	inventoryRepo repositories.InventoryRepository
+// Service depends on this domain's own Repository plus the interfaces of the
+// domains it reads from. The dependency direction is one-way (sale -> inventory,
+// product, customer); none of those may import sale. See design.md §3.1.
+type Service struct {
+	db        *gorm.DB
+	sales     Repository
+	products  product.Repository
+	inventory inventory.Repository
+	customers customer.Repository
 }
 
-// SaleRepository and InventoryRepository follow the exact same interface
-// pattern as ProductRepository in templates/repository.template.go — an
-// interface + a plain struct implementation taking (ctx, db, ...args).
-
-func NewSaleService(
+func NewService(
 	db *gorm.DB,
-	saleRepo repositories.SaleRepository,
-	productRepo repositories.ProductRepository,
-	inventoryRepo repositories.InventoryRepository,
-) *SaleService {
-	return &SaleService{db: db, saleRepo: saleRepo, productRepo: productRepo, inventoryRepo: inventoryRepo}
+	sales Repository,
+	products product.Repository,
+	inventory inventory.Repository,
+	customers customer.Repository,
+) *Service {
+	return &Service{db: db, sales: sales, products: products, inventory: inventory, customers: customers}
 }
 
 // CreateSale is the canonical example of AGENTS.md's transaction rule:
 // sale + sale items + inventory decrement succeed or fail together.
-func (s *SaleService) CreateSale(ctx context.Context, input CreateSaleInput) (*models.Sale, error) {
-	contextLog := log.With().Str("customer_id", input.CustomerID).Logger()
+func (s *Service) CreateSale(ctx context.Context, input CreateSaleInput) (*models.Sale, error) {
+	contextLog := log.With().Str("customer_id", input.CustomerID.String()).Logger()
 	contextLog.Info().Msg("creating sale")
 
 	var sale *models.Sale
@@ -48,13 +53,13 @@ func (s *SaleService) CreateSale(ctx context.Context, input CreateSaleInput) (*m
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Business rule: verify stock BEFORE writing anything.
 		for _, item := range input.Items {
-			inv, err := s.inventoryRepo.GetByProductID(ctx, tx, item.ProductID)
+			inv, err := s.inventory.GetByProductID(ctx, tx, item.ProductID)
 			if err != nil {
 				return err // e.g. models.ErrNotFound, propagated as-is
 			}
 			if inv.Quantity < item.Quantity {
 				contextLog.Warn().
-					Str("product_id", item.ProductID).
+					Str("product_id", item.ProductID.String()).
 					Int("requested", item.Quantity).
 					Int("available", inv.Quantity).
 					Msg("sale rejected: insufficient inventory")
@@ -62,17 +67,21 @@ func (s *SaleService) CreateSale(ctx context.Context, input CreateSaleInput) (*m
 			}
 		}
 
-		// 2. Recompute totals server-side — never trust client-provided totals.
-		built, total := buildSaleFromInput(input)
+		// 2. Recompute totals server-side from trusted product data — never
+		// trust client-supplied prices or totals.
+		built, total, err := buildSaleFromInput(input)
+		if err != nil {
+			return err
+		}
 		built.TotalAmount = total
 
-		if err := s.saleRepo.Create(ctx, tx, built); err != nil {
+		if err := s.sales.Create(ctx, tx, built); err != nil {
 			return err
 		}
 
 		// 3. Decrease inventory for each line item, same transaction.
 		for _, item := range input.Items {
-			if err := s.inventoryRepo.Decrease(ctx, tx, item.ProductID, item.Quantity); err != nil {
+			if err := s.inventory.Decrease(ctx, tx, item.ProductID, item.Quantity); err != nil {
 				return err
 			}
 		}
@@ -82,18 +91,17 @@ func (s *SaleService) CreateSale(ctx context.Context, input CreateSaleInput) (*m
 	})
 
 	if err != nil {
-		// logger.LogError (the package, not the local var above): full err
-		// detail + stack only in development; production logs a safe
-		// summary and marks detail as suppressed. See internal/utils/logger
-		// — a silent transaction failure is treated as a bug.
+		// logger.LogError (the package, not the local var above): full error
+		// detail only in development; production logs a safe summary and marks
+		// the detail suppressed. A silent transaction failure is a bug.
 		logger.LogError(err, "sale transaction failed, rolled back", logger.Fields{
-			"customer_id": input.CustomerID,
+			"customer_id": input.CustomerID.String(),
 		})
 		return nil, err
 	}
 
 	contextLog.Info().
-		Str("sale_id", sale.ID).
+		Str("sale_id", sale.ID.String()).
 		Int64("total_amount", sale.TotalAmount).
 		Msg("sale completed")
 
@@ -101,19 +109,19 @@ func (s *SaleService) CreateSale(ctx context.Context, input CreateSaleInput) (*m
 }
 
 type CreateSaleInput struct {
-	CustomerID string
-	UserID     string
+	CustomerID uuid.UUID
+	UserID     uuid.UUID
 	Items      []SaleItemInput
 }
 
 type SaleItemInput struct {
-	ProductID string
+	ProductID uuid.UUID
 	Quantity  int
 }
 
-// buildSaleFromInput and total calculation omitted for brevity in this
-// template — the point being illustrated is: build the domain object and
-// compute totals here, in the service, not from client-supplied numbers.
-func buildSaleFromInput(input CreateSaleInput) (*models.Sale, int64) {
-	panic("implement: construct *models.Sale + sale items, sum quantity*unit_price from product cost data")
+// buildSaleFromInput constructs the domain object and computes totals from
+// product records fetched via s.products. Omitted here for brevity — the point
+// is that totals are computed in the service, never taken from the request.
+func buildSaleFromInput(input CreateSaleInput) (*models.Sale, int64, error) {
+	panic("implement: build *models.Sale + items and sum quantity*unit_price from product records")
 }

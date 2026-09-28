@@ -8,10 +8,10 @@ VALUES (
     'User',
     'admin',
     'admin@example.com',
-    '$2a$12$3z1QkTCi7SovEAhX.X.fAePM.NQIY.EaFPEP2wPFaS4C6oO2uV2Wy',
+    '$2a$12$J61ahu6c5wMB/vPSG7kK7.k2XAFMQqWT79OsWazk2Lc6wFyNOSzx.',
     'admin',
     true,
     NOW(),
     NOW()
 )
-ON CONFLICT (username) DO NOTHING;
+ON CONFLICT (username) WHERE deleted_at IS NULL DO NOTHING;

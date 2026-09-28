@@ -11,4 +11,6 @@ var (
 	ErrConflict              = errors.New("resource conflict")
 	ErrInternal              = errors.New("internal server error")
 	ErrValidationError       = errors.New("validation failed")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrAccountInactive       = errors.New("account is inactive")
 )

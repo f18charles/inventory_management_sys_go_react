@@ -41,13 +41,13 @@ Rule for every phase: don't start the next one until the current phase compiles,
 - [x] Middleware (CORS, etc.)
 
 ### Phase 3: Authentication
-- [ ] User repository
-- [ ] Password hashing (bcrypt/Argon2)
-- [ ] Login endpoint
-- [ ] JWT authentication
-- [ ] Authentication middleware
-- [ ] Role-based authorization middleware
-- [ ] User management endpoints
+- [x] User repository
+- [x] Password hashing (bcrypt/Argon2)
+- [x] Login endpoint
+- [x] JWT authentication
+- [x] Authentication middleware
+- [x] Role-based authorization middleware
+- [x] User management endpoints
 
 ### Phase 4: Product Management
 - [ ] Category repository / service / handlers

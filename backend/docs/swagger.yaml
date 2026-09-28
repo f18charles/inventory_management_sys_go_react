@@ -1,0 +1,421 @@
+basePath: /api/v1
+definitions:
+  auth.LoginResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  auth.loginRequest:
+    properties:
+      password:
+        minLength: 1
+        type: string
+      username_or_email:
+        type: string
+    required:
+    - password
+    - username_or_email
+    type: object
+  models.Roles:
+    enum:
+    - admin
+    - manager
+    - staff
+    type: string
+    x-enum-varnames:
+    - Admin
+    - Manager
+    - Staff
+  models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_name:
+        type: string
+      role:
+        $ref: '#/definitions/models.Roles'
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  response.PaginationMeta:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total_items:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  user.createUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        minLength: 1
+        type: string
+      last_name:
+        minLength: 1
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/models.Roles'
+        enum:
+        - admin
+        - manager
+        - staff
+      username:
+        minLength: 3
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - role
+    - username
+    type: object
+  user.updateRoleRequest:
+    properties:
+      role:
+        allOf:
+        - $ref: '#/definitions/models.Roles'
+        enum:
+        - admin
+        - manager
+        - staff
+    required:
+    - role
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: REST API for managing products, inventory, purchases, sales, and users.
+  title: Inventory Management System API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Verifies username/email and password, then returns a JWT and the
+        user profile.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/auth.LoginResponse'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      summary: Authenticate a user
+      tags:
+      - auth
+  /auth/me:
+    get:
+      description: Returns the profile of the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/models.User'
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get the current user
+      tags:
+      - auth
+  /users:
+    get:
+      description: Returns a paginated list of users. Admin/Manager only.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                items:
+                  $ref: '#/definitions/models.User'
+                type: array
+              meta:
+                $ref: '#/definitions/response.PaginationMeta'
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account. Admin only.
+      parameters:
+      - description: New user details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.createUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/models.User'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a user
+      tags:
+      - users
+  /users/{id}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Changes the role assigned to a user. Admin only.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.updateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              data:
+                $ref: '#/definitions/models.User'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a user's role
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
