@@ -48,7 +48,7 @@ func ensureUsersTable(db *gorm.DB) error {
 	if db.Migrator().HasTable("users") {
 		return nil
 	}
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "database", "migrations", "000001_create_users.up.sql"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "database", "migrations", "000001_create_users.up.sql"))
 	if err != nil {
 		return err
 	}
