@@ -189,5 +189,5 @@ func TestUserRepository_DuplicateUsernameRejected(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, tx, newUser("dup", "dup1@example.com")))
 
 	err := repo.Create(ctx, tx, newUser("dup", "dup2@example.com"))
-	require.Error(t, err)
+	assert.ErrorIs(t, err, models.ErrConflict)
 }

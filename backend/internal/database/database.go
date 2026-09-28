@@ -17,6 +17,10 @@ func Connect(dsn string, isDev bool) (*gorm.DB, error) {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(logLevel),
+		// Translate dialect errors (duplicate key, FK, check constraint) into
+		// GORM sentinel errors so repositories can map them without string
+		// matching or leaking driver-specific types upward.
+		TranslateError: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)

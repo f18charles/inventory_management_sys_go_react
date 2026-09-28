@@ -33,7 +33,11 @@ func NewUserRepository() UserRepository {
 }
 
 func (r *userRepository) Create(ctx context.Context, db *gorm.DB, user *models.User) error {
-	if err := db.WithContext(ctx).Create(user).Error; err != nil {
+	err := db.WithContext(ctx).Create(user).Error
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return models.ErrConflict
+	}
+	if err != nil {
 		return fmt.Errorf("create user: %w", err)
 	}
 	return nil
