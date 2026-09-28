@@ -1,4 +1,4 @@
-package services
+package user
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"i_m_s/internal/models"
-	"i_m_s/internal/repositories"
 	authutils "i_m_s/internal/utils/auth"
 	"i_m_s/internal/utils/logger"
 
@@ -15,16 +14,15 @@ import (
 	"gorm.io/gorm"
 )
 
-// UserService owns user lifecycle business rules: uniqueness, role validity,
-// and password hashing. It depends on the repository interface, never GORM
-// directly for query logic.
-type UserService struct {
-	db       *gorm.DB
-	userRepo repositories.UserRepository
+// Service owns user lifecycle business rules: uniqueness, role validity, and
+// password hashing. It depends on the domain's Repository interface.
+type Service struct {
+	db   *gorm.DB
+	repo Repository
 }
 
-func NewUserService(db *gorm.DB, userRepo repositories.UserRepository) *UserService {
-	return &UserService{db: db, userRepo: userRepo}
+func NewService(db *gorm.DB, repo Repository) *Service {
+	return &Service{db: db, repo: repo}
 }
 
 // CreateUserInput carries the validated request data for creating a user.
@@ -39,18 +37,18 @@ type CreateUserInput struct {
 
 // CreateUser enforces unique username/email, hashes the password, and persists
 // the new account.
-func (s *UserService) CreateUser(ctx context.Context, input CreateUserInput) (*models.User, error) {
+func (s *Service) CreateUser(ctx context.Context, input CreateUserInput) (*models.User, error) {
 	if !isValidRole(input.Role) {
 		return nil, fmt.Errorf("%w: invalid role %q", models.ErrBadRequest, input.Role)
 	}
 
-	if _, err := s.userRepo.GetByUsername(ctx, s.db, input.Username); err == nil {
+	if _, err := s.repo.GetByUsername(ctx, s.db, input.Username); err == nil {
 		return nil, fmt.Errorf("%w: username already exists", models.ErrConflict)
 	} else if !errors.Is(err, models.ErrNotFound) {
 		return nil, err
 	}
 
-	if _, err := s.userRepo.GetByEmail(ctx, s.db, input.Email); err == nil {
+	if _, err := s.repo.GetByEmail(ctx, s.db, input.Email); err == nil {
 		return nil, fmt.Errorf("%w: email already exists", models.ErrConflict)
 	} else if !errors.Is(err, models.ErrNotFound) {
 		return nil, err
@@ -64,7 +62,7 @@ func (s *UserService) CreateUser(ctx context.Context, input CreateUserInput) (*m
 		return nil, err
 	}
 
-	user := &models.User{
+	created := &models.User{
 		FirstName: input.FirstName,
 		LastName:  input.LastName,
 		Username:  input.Username,
@@ -74,7 +72,7 @@ func (s *UserService) CreateUser(ctx context.Context, input CreateUserInput) (*m
 		IsActive:  true,
 	}
 
-	if err := s.userRepo.Create(ctx, s.db, user); err != nil {
+	if err := s.repo.Create(ctx, s.db, created); err != nil {
 		logger.LogError(err, "failed to persist new user", logger.Fields{
 			"username": input.Username,
 		})
@@ -82,36 +80,36 @@ func (s *UserService) CreateUser(ctx context.Context, input CreateUserInput) (*m
 	}
 
 	log.Info().
-		Str("user_id", user.ID.String()).
-		Str("role", string(user.Role)).
+		Str("user_id", created.ID.String()).
+		Str("role", string(created.Role)).
 		Msg("user created")
 
-	return user, nil
+	return created, nil
 }
 
-// GetUserByID returns a single user by primary key.
-func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
-	return s.userRepo.GetByID(ctx, s.db, id)
+// GetByID returns a single user by primary key.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
+	return s.repo.GetByID(ctx, s.db, id)
 }
 
-// ListUsers returns one page of users and the total count.
-func (s *UserService) ListUsers(ctx context.Context, page, pageSize int) ([]models.User, int64, error) {
-	return s.userRepo.List(ctx, s.db, page, pageSize)
+// List returns one page of users and the total count.
+func (s *Service) List(ctx context.Context, page, pageSize int) ([]models.User, int64, error) {
+	return s.repo.List(ctx, s.db, page, pageSize)
 }
 
-// UpdateUserRole changes a user's assigned role after validating it is known.
-func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role models.Roles) (*models.User, error) {
+// UpdateRole changes a user's assigned role after validating it is known.
+func (s *Service) UpdateRole(ctx context.Context, id uuid.UUID, role models.Roles) (*models.User, error) {
 	if !isValidRole(role) {
 		return nil, fmt.Errorf("%w: invalid role %q", models.ErrBadRequest, role)
 	}
 
-	user, err := s.userRepo.GetByID(ctx, s.db, id)
+	found, err := s.repo.GetByID(ctx, s.db, id)
 	if err != nil {
 		return nil, err
 	}
 
-	user.Role = role
-	if err := s.userRepo.Update(ctx, s.db, user); err != nil {
+	found.Role = role
+	if err := s.repo.Update(ctx, s.db, found); err != nil {
 		logger.LogError(err, "failed to update user role", logger.Fields{"user_id": id.String()})
 		return nil, err
 	}
@@ -121,7 +119,7 @@ func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role mod
 		Str("role", string(role)).
 		Msg("user role updated")
 
-	return user, nil
+	return found, nil
 }
 
 func isValidRole(role models.Roles) bool {

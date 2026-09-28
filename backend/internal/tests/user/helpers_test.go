@@ -1,4 +1,4 @@
-package handlers_test
+package user_test
 
 import (
 	"encoding/json"
@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"i_m_s/internal/handlers"
-	"i_m_s/internal/services"
+	"i_m_s/internal/tests/mocks"
+	"i_m_s/internal/user"
 	authutils "i_m_s/internal/utils/auth"
 
 	"github.com/gin-gonic/gin"
@@ -18,14 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestRouter(repo *mockUserRepository) (*gin.Engine, *authutils.JWTManager) {
+func init() {
+	gin.SetMode(gin.TestMode)
+}
+
+func newUserRouter(repo *mocks.UserRepository) (*gin.Engine, *authutils.JWTManager) {
 	jwtManager := authutils.NewJWTManager("test-secret", time.Hour)
 	engine := gin.New()
 	v1 := engine.Group("/api/v1")
-
-	handlers.RegisterAuthRoutes(v1, handlers.NewAuthHandler(services.NewAuthService(nil, repo, jwtManager)), jwtManager)
-	handlers.RegisterUserRoutes(v1, handlers.NewUserHandler(services.NewUserService(nil, repo)), jwtManager)
-
+	user.RegisterRoutes(v1, user.NewHandler(user.NewService(nil, repo)), jwtManager)
 	return engine, jwtManager
 }
 

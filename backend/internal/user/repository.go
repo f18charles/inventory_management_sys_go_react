@@ -1,4 +1,4 @@
-package repositories
+package user
 
 import (
 	"context"
@@ -11,9 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// UserRepository is the persistence boundary for user records. It exposes pure
+// Repository is the persistence boundary for user records. It exposes pure
 // CRUD/query operations and contains no business or authorization decisions.
-type UserRepository interface {
+// It accepts a *gorm.DB per call so it works standalone or inside a caller's
+// transaction.
+type Repository interface {
 	Create(ctx context.Context, db *gorm.DB, user *models.User) error
 	GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID) (*models.User, error)
 	GetByEmail(ctx context.Context, db *gorm.DB, email string) (*models.User, error)
@@ -23,16 +25,14 @@ type UserRepository interface {
 	List(ctx context.Context, db *gorm.DB, page, pageSize int) ([]models.User, int64, error)
 }
 
-type userRepository struct{}
+type repository struct{}
 
-// NewUserRepository returns a GORM-backed UserRepository. It accepts a
-// transaction handle per call so the same repository works standalone or
-// inside a service-owned transaction.
-func NewUserRepository() UserRepository {
-	return &userRepository{}
+// NewRepository returns a GORM-backed User user.Repository.
+func NewRepository() Repository {
+	return &repository{}
 }
 
-func (r *userRepository) Create(ctx context.Context, db *gorm.DB, user *models.User) error {
+func (r *repository) Create(ctx context.Context, db *gorm.DB, user *models.User) error {
 	err := db.WithContext(ctx).Create(user).Error
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return models.ErrConflict
@@ -43,7 +43,7 @@ func (r *userRepository) Create(ctx context.Context, db *gorm.DB, user *models.U
 	return nil
 }
 
-func (r *userRepository) GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID) (*models.User, error) {
+func (r *repository) GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID) (*models.User, error) {
 	var user models.User
 	err := db.WithContext(ctx).First(&user, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -55,7 +55,7 @@ func (r *userRepository) GetByID(ctx context.Context, db *gorm.DB, id uuid.UUID)
 	return &user, nil
 }
 
-func (r *userRepository) GetByEmail(ctx context.Context, db *gorm.DB, email string) (*models.User, error) {
+func (r *repository) GetByEmail(ctx context.Context, db *gorm.DB, email string) (*models.User, error) {
 	var user models.User
 	err := db.WithContext(ctx).First(&user, "email = ?", email).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -67,7 +67,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, db *gorm.DB, email stri
 	return &user, nil
 }
 
-func (r *userRepository) GetByUsername(ctx context.Context, db *gorm.DB, username string) (*models.User, error) {
+func (r *repository) GetByUsername(ctx context.Context, db *gorm.DB, username string) (*models.User, error) {
 	var user models.User
 	err := db.WithContext(ctx).First(&user, "username = ?", username).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -79,14 +79,14 @@ func (r *userRepository) GetByUsername(ctx context.Context, db *gorm.DB, usernam
 	return &user, nil
 }
 
-func (r *userRepository) Update(ctx context.Context, db *gorm.DB, user *models.User) error {
+func (r *repository) Update(ctx context.Context, db *gorm.DB, user *models.User) error {
 	if err := db.WithContext(ctx).Save(user).Error; err != nil {
 		return fmt.Errorf("update user %s: %w", user.ID, err)
 	}
 	return nil
 }
 
-func (r *userRepository) Delete(ctx context.Context, db *gorm.DB, id uuid.UUID) error {
+func (r *repository) Delete(ctx context.Context, db *gorm.DB, id uuid.UUID) error {
 	res := db.WithContext(ctx).Delete(&models.User{}, "id = ?", id)
 	if res.Error != nil {
 		return fmt.Errorf("delete user %s: %w", id, res.Error)
@@ -97,7 +97,7 @@ func (r *userRepository) Delete(ctx context.Context, db *gorm.DB, id uuid.UUID) 
 	return nil
 }
 
-func (r *userRepository) List(ctx context.Context, db *gorm.DB, page, pageSize int) ([]models.User, int64, error) {
+func (r *repository) List(ctx context.Context, db *gorm.DB, page, pageSize int) ([]models.User, int64, error) {
 	if page < 1 {
 		page = 1
 	}

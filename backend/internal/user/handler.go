@@ -1,24 +1,23 @@
-package handlers
+package user
 
 import (
 	"net/http"
 	"strconv"
 
 	"i_m_s/internal/models"
-	"i_m_s/internal/services"
 	"i_m_s/internal/utils/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-// UserHandler exposes user management endpoints for administrators.
-type UserHandler struct {
-	userService *services.UserService
+// Handler exposes user management endpoints for administrators.
+type Handler struct {
+	service *Service
 }
 
-func NewUserHandler(userService *services.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
 }
 
 type createUserRequest struct {
@@ -48,13 +47,13 @@ type updateRoleRequest struct {
 // @Failure      403 {object} object{error=object{code=string,message=string}}
 // @Failure      409 {object} object{error=object{code=string,message=string}}
 // @Router       /users [post]
-func (h *UserHandler) Create(c *gin.Context) {
+func (h *Handler) Create(c *gin.Context) {
 	var req createUserRequest
-	if !BindAndValidate(c, &req) {
+	if !response.BindJSON(c, &req) {
 		return
 	}
 
-	user, err := h.userService.CreateUser(c.Request.Context(), services.CreateUserInput{
+	created, err := h.service.CreateUser(c.Request.Context(), CreateUserInput{
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		Username:  req.Username,
@@ -63,11 +62,11 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Role:      req.Role,
 	})
 	if err != nil {
-		RespondError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
-	response.Success(c, http.StatusCreated, user)
+	response.Success(c, http.StatusCreated, created)
 }
 
 // List godoc
@@ -82,13 +81,13 @@ func (h *UserHandler) Create(c *gin.Context) {
 // @Failure      401 {object} object{error=object{code=string,message=string}}
 // @Failure      403 {object} object{error=object{code=string,message=string}}
 // @Router       /users [get]
-func (h *UserHandler) List(c *gin.Context) {
+func (h *Handler) List(c *gin.Context) {
 	page := queryInt(c, "page", 1)
 	pageSize := queryInt(c, "page_size", 20)
 
-	users, total, err := h.userService.ListUsers(c.Request.Context(), page, pageSize)
+	users, total, err := h.service.List(c.Request.Context(), page, pageSize)
 	if err != nil {
-		RespondError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
@@ -110,7 +109,7 @@ func (h *UserHandler) List(c *gin.Context) {
 // @Failure      403 {object} object{error=object{code=string,message=string}}
 // @Failure      404 {object} object{error=object{code=string,message=string}}
 // @Router       /users/{id}/role [patch]
-func (h *UserHandler) UpdateRole(c *gin.Context) {
+func (h *Handler) UpdateRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid user id")
@@ -118,17 +117,17 @@ func (h *UserHandler) UpdateRole(c *gin.Context) {
 	}
 
 	var req updateRoleRequest
-	if !BindAndValidate(c, &req) {
+	if !response.BindJSON(c, &req) {
 		return
 	}
 
-	user, err := h.userService.UpdateUserRole(c.Request.Context(), id, req.Role)
+	updated, err := h.service.UpdateRole(c.Request.Context(), id, req.Role)
 	if err != nil {
-		RespondError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
-	response.Success(c, http.StatusOK, user)
+	response.Success(c, http.StatusOK, updated)
 }
 
 func queryInt(c *gin.Context, key string, fallback int) int {

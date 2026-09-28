@@ -5,7 +5,7 @@ import (
 
 	"i_m_s/internal/config"
 	"i_m_s/internal/database"
-	"i_m_s/internal/handlers"
+	"i_m_s/internal/router"
 	authutils "i_m_s/internal/utils/auth"
 	"i_m_s/internal/utils/logger"
 
@@ -44,12 +44,12 @@ func main() {
 
 	// Setup router with middleware and domain dependencies
 	jwtManager := authutils.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiry())
-	router := handlers.SetupRouter(db, jwtManager, cfg.AppEnv != "production")
+	httpRouter := router.SetupRouter(db, jwtManager, cfg.AppEnv != "production")
 
 	// Start HTTP server
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
 	log.Info().Str("address", addr).Msg("HTTP server listening")
-	if err := router.Run(addr); err != nil {
+	if err := httpRouter.Run(addr); err != nil {
 		log.Fatal().Err(err).Msg("HTTP server failed")
 	}
 }

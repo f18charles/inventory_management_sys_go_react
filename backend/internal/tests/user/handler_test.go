@@ -1,4 +1,4 @@
-package handlers_test
+package user_test
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"i_m_s/internal/models"
-	"i_m_s/internal/utils/response"
+	"i_m_s/internal/tests/mocks"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUserHandler_ListAsAdmin(t *testing.T) {
-	repo := new(mockUserRepository)
+func TestHandler_ListAsAdmin(t *testing.T) {
+	repo := new(mocks.UserRepository)
 	repo.On("List", mock.Anything, mock.Anything, 1, 20).
 		Return([]models.User{{BaseModel: models.BaseModel{ID: uuid.New()}, Username: "a"}}, int64(1), nil)
-	engine, jwtManager := newTestRouter(repo)
+	engine, jwtManager := newUserRouter(repo)
 
 	token, err := jwtManager.Generate(uuid.New(), models.Admin)
 	require.NoError(t, err)
@@ -28,16 +28,18 @@ func TestUserHandler_ListAsAdmin(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 
 	var res struct {
-		Data []models.User           `json:"data"`
-		Meta response.PaginationMeta `json:"meta"`
+		Data []models.User `json:"data"`
+		Meta struct {
+			TotalItems int64 `json:"total_items"`
+		} `json:"meta"`
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &res))
 	assert.Len(t, res.Data, 1)
 	assert.Equal(t, int64(1), res.Meta.TotalItems)
 }
 
-func TestUserHandler_ListForbiddenForStaff(t *testing.T) {
-	engine, jwtManager := newTestRouter(new(mockUserRepository))
+func TestHandler_ListForbiddenForStaff(t *testing.T) {
+	engine, jwtManager := newUserRouter(new(mocks.UserRepository))
 
 	token, err := jwtManager.Generate(uuid.New(), models.Staff)
 	require.NoError(t, err)
@@ -47,20 +49,20 @@ func TestUserHandler_ListForbiddenForStaff(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestUserHandler_ListRequiresAuth(t *testing.T) {
-	engine, _ := newTestRouter(new(mockUserRepository))
+func TestHandler_ListRequiresAuth(t *testing.T) {
+	engine, _ := newUserRouter(new(mocks.UserRepository))
 
 	w := doRequest(t, engine, http.MethodGet, "/api/v1/users", "", "")
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestUserHandler_CreateAsAdmin(t *testing.T) {
-	repo := new(mockUserRepository)
+func TestHandler_CreateAsAdmin(t *testing.T) {
+	repo := new(mocks.UserRepository)
 	repo.On("GetByUsername", mock.Anything, mock.Anything, "newbie").Return(nil, models.ErrNotFound)
 	repo.On("GetByEmail", mock.Anything, mock.Anything, "newbie@example.com").Return(nil, models.ErrNotFound)
 	repo.On("Create", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	engine, jwtManager := newTestRouter(repo)
+	engine, jwtManager := newUserRouter(repo)
 
 	token, err := jwtManager.Generate(uuid.New(), models.Admin)
 	require.NoError(t, err)
@@ -78,8 +80,8 @@ func TestUserHandler_CreateAsAdmin(t *testing.T) {
 	assert.NotContains(t, w.Body.String(), "password123")
 }
 
-func TestUserHandler_CreateForbiddenForStaff(t *testing.T) {
-	engine, jwtManager := newTestRouter(new(mockUserRepository))
+func TestHandler_CreateForbiddenForStaff(t *testing.T) {
+	engine, jwtManager := newUserRouter(new(mocks.UserRepository))
 
 	token, err := jwtManager.Generate(uuid.New(), models.Staff)
 	require.NoError(t, err)
@@ -90,8 +92,8 @@ func TestUserHandler_CreateForbiddenForStaff(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestUserHandler_CreateInvalidBody(t *testing.T) {
-	engine, jwtManager := newTestRouter(new(mockUserRepository))
+func TestHandler_CreateInvalidBody(t *testing.T) {
+	engine, jwtManager := newUserRouter(new(mocks.UserRepository))
 
 	token, err := jwtManager.Generate(uuid.New(), models.Admin)
 	require.NoError(t, err)
@@ -102,17 +104,17 @@ func TestUserHandler_CreateInvalidBody(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestUserHandler_UpdateRoleAsAdmin(t *testing.T) {
-	repo := new(mockUserRepository)
-	user := activeHandlerUser(t, "correct-password")
-	repo.On("GetByID", mock.Anything, mock.Anything, user.ID).Return(user, nil)
+func TestHandler_UpdateRoleAsAdmin(t *testing.T) {
+	repo := new(mocks.UserRepository)
+	account := &models.User{BaseModel: models.BaseModel{ID: uuid.New()}, Role: models.Staff}
+	repo.On("GetByID", mock.Anything, mock.Anything, account.ID).Return(account, nil)
 	repo.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	engine, jwtManager := newTestRouter(repo)
+	engine, jwtManager := newUserRouter(repo)
 
 	token, err := jwtManager.Generate(uuid.New(), models.Admin)
 	require.NoError(t, err)
 
-	w := doRequest(t, engine, http.MethodPatch, "/api/v1/users/"+user.ID.String()+"/role", `{"role":"manager"}`, token)
+	w := doRequest(t, engine, http.MethodPatch, "/api/v1/users/"+account.ID.String()+"/role", `{"role":"manager"}`, token)
 
 	require.Equal(t, http.StatusOK, w.Code)
 
@@ -123,8 +125,8 @@ func TestUserHandler_UpdateRoleAsAdmin(t *testing.T) {
 	assert.Equal(t, models.Manager, res.Data.Role)
 }
 
-func TestUserHandler_UpdateRoleInvalidID(t *testing.T) {
-	engine, jwtManager := newTestRouter(new(mockUserRepository))
+func TestHandler_UpdateRoleInvalidID(t *testing.T) {
+	engine, jwtManager := newUserRouter(new(mocks.UserRepository))
 
 	token, err := jwtManager.Generate(uuid.New(), models.Admin)
 	require.NoError(t, err)

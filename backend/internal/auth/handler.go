@@ -1,25 +1,24 @@
-package handlers
+package auth
 
 import (
 	"net/http"
 
 	"i_m_s/internal/middleware"
 	"i_m_s/internal/models"
-	"i_m_s/internal/services"
 	"i_m_s/internal/utils/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-// AuthHandler exposes authentication endpoints. It only binds requests, calls
-// the auth service, and shapes HTTP responses.
-type AuthHandler struct {
-	authService *services.AuthService
+// Handler exposes authentication endpoints. It only binds requests, calls the
+// auth service, and shapes HTTP responses.
+type Handler struct {
+	service *Service
 }
 
-func NewAuthHandler(authService *services.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
 }
 
 type loginRequest struct {
@@ -40,24 +39,24 @@ type LoginResponse struct {
 // @Accept       json
 // @Produce      json
 // @Param        request body loginRequest true "Login credentials"
-// @Success      200 {object} object{data=handlers.LoginResponse}
+// @Success      200 {object} object{data=auth.LoginResponse}
 // @Failure      400 {object} object{error=object{code=string,message=string}}
 // @Failure      401 {object} object{error=object{code=string,message=string}}
 // @Failure      403 {object} object{error=object{code=string,message=string}}
 // @Router       /auth/login [post]
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *Handler) Login(c *gin.Context) {
 	var req loginRequest
-	if !BindAndValidate(c, &req) {
+	if !response.BindJSON(c, &req) {
 		return
 	}
 
-	user, token, err := h.authService.Login(c.Request.Context(), req.UsernameOrEmail, req.Password)
+	account, token, err := h.service.Login(c.Request.Context(), req.UsernameOrEmail, req.Password)
 	if err != nil {
-		RespondError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
-	response.Success(c, http.StatusOK, LoginResponse{Token: token, User: user})
+	response.Success(c, http.StatusOK, LoginResponse{Token: token, User: account})
 }
 
 // Me godoc
@@ -69,20 +68,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Success      200 {object} object{data=models.User}
 // @Failure      401 {object} object{error=object{code=string,message=string}}
 // @Router       /auth/me [get]
-func (h *AuthHandler) Me(c *gin.Context) {
+func (h *Handler) Me(c *gin.Context) {
 	userID, err := currentUserID(c)
 	if err != nil {
-		RespondError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
-	user, err := h.authService.GetProfile(c.Request.Context(), userID)
+	account, err := h.service.GetProfile(c.Request.Context(), userID)
 	if err != nil {
-		RespondError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
-	response.Success(c, http.StatusOK, user)
+	response.Success(c, http.StatusOK, account)
 }
 
 // currentUserID reads the authenticated user id placed on the context by the

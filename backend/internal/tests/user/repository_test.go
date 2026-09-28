@@ -1,4 +1,4 @@
-package repositories_test
+package user_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"i_m_s/internal/config"
 	"i_m_s/internal/database"
 	"i_m_s/internal/models"
-	"i_m_s/internal/repositories"
+	"i_m_s/internal/user"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -26,29 +26,29 @@ var testDB *gorm.DB
 func TestMain(m *testing.M) {
 	cfg, err := config.Load()
 	if err == nil {
-		db, dbErr := database.Connect(cfg.DSN(), false)
+		db, dbErr := database.Connect(cfg.TestDSN(), false)
 		if dbErr == nil {
 			if migErr := ensureUsersTable(db); migErr == nil {
 				testDB = db
 			} else {
-				fmt.Printf("repository tests: failed to prepare schema: %v\n", migErr)
+				fmt.Printf("user repository tests: failed to prepare schema: %v\n", migErr)
 			}
 		} else {
-			fmt.Printf("repository tests: database unavailable, skipping: %v\n", dbErr)
+			fmt.Printf("user repository tests: test database unavailable, skipping: %v\n", dbErr)
 		}
 	} else {
-		fmt.Printf("repository tests: config load failed: %v\n", err)
+		fmt.Printf("user repository tests: config load failed: %v\n", err)
 	}
 	os.Exit(m.Run())
 }
 
 // ensureUsersTable applies the users migration when the table is absent so the
-// integration tests are self-contained in CI. It never drops an existing table.
+// integration tests are self-contained. It never drops an existing table.
 func ensureUsersTable(db *gorm.DB) error {
 	if db.Migrator().HasTable("users") {
 		return nil
 	}
-	raw, err := os.ReadFile(filepath.Join("..", "..", "database", "migrations", "000001_create_users.up.sql"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "database", "migrations", "000001_create_users.up.sql"))
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func ensureUsersTable(db *gorm.DB) error {
 func newTestTx(t *testing.T) *gorm.DB {
 	t.Helper()
 	if testDB == nil {
-		t.Skip("test database unavailable; set DB_HOST/DB_USER/DB_PASSWORD/DB_NAME")
+		t.Skip("test database unavailable; set TEST_DATABASE_URL")
 	}
 	tx := testDB.Begin()
 	require.NoError(t, tx.Error)
@@ -89,32 +89,32 @@ func newUser(username, email string) *models.User {
 	}
 }
 
-func TestUserRepository_CreateAndLookups(t *testing.T) {
+func TestRepository_CreateAndLookups(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestTx(t)
-	repo := repositories.NewUserRepository()
+	repo := user.NewRepository()
 
-	user := newUser("ada", "ada@example.com")
-	require.NoError(t, repo.Create(ctx, tx, user))
-	assert.NotEqual(t, uuid.Nil, user.ID)
+	account := newUser("ada", "ada@example.com")
+	require.NoError(t, repo.Create(ctx, tx, account))
+	assert.NotEqual(t, uuid.Nil, account.ID)
 
-	byID, err := repo.GetByID(ctx, tx, user.ID)
+	byID, err := repo.GetByID(ctx, tx, account.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "ada", byID.Username)
 
 	byEmail, err := repo.GetByEmail(ctx, tx, "ada@example.com")
 	require.NoError(t, err)
-	assert.Equal(t, user.ID, byEmail.ID)
+	assert.Equal(t, account.ID, byEmail.ID)
 
 	byUsername, err := repo.GetByUsername(ctx, tx, "ada")
 	require.NoError(t, err)
-	assert.Equal(t, user.ID, byUsername.ID)
+	assert.Equal(t, account.ID, byUsername.ID)
 }
 
-func TestUserRepository_NotFound(t *testing.T) {
+func TestRepository_NotFound(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestTx(t)
-	repo := repositories.NewUserRepository()
+	repo := user.NewRepository()
 
 	_, err := repo.GetByID(ctx, tx, uuid.New())
 	assert.ErrorIs(t, err, models.ErrNotFound)
@@ -126,45 +126,45 @@ func TestUserRepository_NotFound(t *testing.T) {
 	assert.ErrorIs(t, err, models.ErrNotFound)
 }
 
-func TestUserRepository_Update(t *testing.T) {
+func TestRepository_Update(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestTx(t)
-	repo := repositories.NewUserRepository()
+	repo := user.NewRepository()
 
-	user := newUser("grace", "grace@example.com")
-	require.NoError(t, repo.Create(ctx, tx, user))
+	account := newUser("grace", "grace@example.com")
+	require.NoError(t, repo.Create(ctx, tx, account))
 
-	user.Role = models.Manager
-	user.IsActive = false
-	require.NoError(t, repo.Update(ctx, tx, user))
+	account.Role = models.Manager
+	account.IsActive = false
+	require.NoError(t, repo.Update(ctx, tx, account))
 
-	got, err := repo.GetByID(ctx, tx, user.ID)
+	got, err := repo.GetByID(ctx, tx, account.ID)
 	require.NoError(t, err)
 	assert.Equal(t, models.Manager, got.Role)
 	assert.False(t, got.IsActive)
 }
 
-func TestUserRepository_Delete(t *testing.T) {
+func TestRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestTx(t)
-	repo := repositories.NewUserRepository()
+	repo := user.NewRepository()
 
-	user := newUser("linus", "linus@example.com")
-	require.NoError(t, repo.Create(ctx, tx, user))
+	account := newUser("linus", "linus@example.com")
+	require.NoError(t, repo.Create(ctx, tx, account))
 
-	require.NoError(t, repo.Delete(ctx, tx, user.ID))
+	require.NoError(t, repo.Delete(ctx, tx, account.ID))
 
-	_, err := repo.GetByID(ctx, tx, user.ID)
+	_, err := repo.GetByID(ctx, tx, account.ID)
 	assert.ErrorIs(t, err, models.ErrNotFound)
 
 	// Deleting an already soft-deleted row reports not found.
-	assert.ErrorIs(t, repo.Delete(ctx, tx, user.ID), models.ErrNotFound)
+	assert.ErrorIs(t, repo.Delete(ctx, tx, account.ID), models.ErrNotFound)
 }
 
-func TestUserRepository_ListPagination(t *testing.T) {
+func TestRepository_ListPagination(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestTx(t)
-	repo := repositories.NewUserRepository()
+	repo := user.NewRepository()
 
 	for _, name := range []string{"u1", "u2", "u3"} {
 		require.NoError(t, repo.Create(ctx, tx, newUser(name, name+"@example.com")))
@@ -181,10 +181,10 @@ func TestUserRepository_ListPagination(t *testing.T) {
 	assert.Len(t, secondPage, 1)
 }
 
-func TestUserRepository_DuplicateUsernameRejected(t *testing.T) {
+func TestRepository_DuplicateUsernameRejected(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestTx(t)
-	repo := repositories.NewUserRepository()
+	repo := user.NewRepository()
 
 	require.NoError(t, repo.Create(ctx, tx, newUser("dup", "dup1@example.com")))
 
