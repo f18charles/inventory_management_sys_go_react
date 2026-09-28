@@ -22,7 +22,7 @@ func init() {
 }
 
 func TestHealthCheck(t *testing.T) {
-	router := handlers.SetupRouter(nil, true)
+	router := handlers.SetupRouter(nil, nil, true)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
@@ -39,7 +39,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestApiV1HealthCheck(t *testing.T) {
-	router := handlers.SetupRouter(nil, true)
+	router := handlers.SetupRouter(nil, nil, true)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/api/v1/health", nil)

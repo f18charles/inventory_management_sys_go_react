@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"i_m_s/internal/middleware"
+	authutils "i_m_s/internal/utils/auth"
 	"i_m_s/internal/utils/response"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,7 @@ import (
 
 // SetupRouter creates the Gin engine, registers global middleware,
 // and configures the base route groups.
-func SetupRouter(db *gorm.DB, isDev bool) *gin.Engine {
+func SetupRouter(db *gorm.DB, jwtManager *authutils.JWTManager, isDev bool) *gin.Engine {
 	if !isDev {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -34,6 +35,9 @@ func SetupRouter(db *gorm.DB, isDev bool) *gin.Engine {
 	v1.GET("/health", func(c *gin.Context) {
 		response.Success(c, http.StatusOK, gin.H{"status": "ok", "version": "v1"})
 	})
+
+	// Domain routes (auth, users, ...)
+	RegisterRoutes(v1, db, jwtManager)
 
 	return router
 }

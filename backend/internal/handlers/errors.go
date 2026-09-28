@@ -18,6 +18,10 @@ func RespondError(c *gin.Context, err error) {
 		response.Error(c, http.StatusConflict, "INSUFFICIENT_INVENTORY", err.Error())
 	case errors.Is(err, models.ErrUnauthorized):
 		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
+	case errors.Is(err, models.ErrInvalidCredentials):
+		response.Error(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid username or password")
+	case errors.Is(err, models.ErrAccountInactive):
+		response.Error(c, http.StatusForbidden, "ACCOUNT_INACTIVE", "account is inactive")
 	case errors.Is(err, models.ErrForbidden):
 		response.Error(c, http.StatusForbidden, "FORBIDDEN", "forbidden")
 	case errors.Is(err, models.ErrBadRequest):

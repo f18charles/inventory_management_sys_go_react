@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -45,6 +46,15 @@ func Load() (*Config, error) {
 func (c *Config) DSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		c.DBHost, c.DBPort, c.DBUser, c.DBPassword, c.DBName, c.DBSSLMode)
+}
+
+// JWTExpiry parses JWT_EXPIRATION, falling back to 24h when unset or invalid.
+func (c *Config) JWTExpiry() time.Duration {
+	expiry, err := time.ParseDuration(c.JWTExpiration)
+	if err != nil || expiry <= 0 {
+		return 24 * time.Hour
+	}
+	return expiry
 }
 
 func getEnv(key, fallback string) string {
