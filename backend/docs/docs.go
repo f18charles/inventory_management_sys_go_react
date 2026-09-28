@@ -35,7 +35,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.loginRequest"
+                            "$ref": "#/definitions/auth.loginRequest"
                         }
                     }
                 ],
@@ -46,7 +46,7 @@ const docTemplate = `{
                             "type": "object",
                             "properties": {
                                 "data": {
-                                    "$ref": "#/definitions/handlers.LoginResponse"
+                                    "$ref": "#/definitions/auth.LoginResponse"
                                 }
                             }
                         }
@@ -273,7 +273,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.createUserRequest"
+                            "$ref": "#/definitions/user.createUserRequest"
                         }
                     }
                 ],
@@ -400,7 +400,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.updateRoleRequest"
+                            "$ref": "#/definitions/user.updateRoleRequest"
                         }
                     }
                 ],
@@ -497,7 +497,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handlers.LoginResponse": {
+        "auth.LoginResponse": {
             "type": "object",
             "properties": {
                 "token": {
@@ -508,51 +508,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.createUserRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "first_name",
-                "last_name",
-                "password",
-                "role",
-                "username"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "last_name": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 8
-                },
-                "role": {
-                    "enum": [
-                        "admin",
-                        "manager",
-                        "staff"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.Roles"
-                        }
-                    ]
-                },
-                "username": {
-                    "type": "string",
-                    "minLength": 3
-                }
-            }
-        },
-        "handlers.loginRequest": {
+        "auth.loginRequest": {
             "type": "object",
             "required": [
                 "password",
@@ -565,26 +521,6 @@ const docTemplate = `{
                 },
                 "username_or_email": {
                     "type": "string"
-                }
-            }
-        },
-        "handlers.updateRoleRequest": {
-            "type": "object",
-            "required": [
-                "role"
-            ],
-            "properties": {
-                "role": {
-                    "enum": [
-                        "admin",
-                        "manager",
-                        "staff"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.Roles"
-                        }
-                    ]
                 }
             }
         },
@@ -647,6 +583,70 @@ const docTemplate = `{
                 },
                 "total_pages": {
                     "type": "integer"
+                }
+            }
+        },
+        "user.createUserRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "first_name",
+                "last_name",
+                "password",
+                "role",
+                "username"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "last_name": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "role": {
+                    "enum": [
+                        "admin",
+                        "manager",
+                        "staff"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Roles"
+                        }
+                    ]
+                },
+                "username": {
+                    "type": "string",
+                    "minLength": 3
+                }
+            }
+        },
+        "user.updateRoleRequest": {
+            "type": "object",
+            "required": [
+                "role"
+            ],
+            "properties": {
+                "role": {
+                    "enum": [
+                        "admin",
+                        "manager",
+                        "staff"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Roles"
+                        }
+                    ]
                 }
             }
         }

@@ -1,44 +1,13 @@
 basePath: /api/v1
 definitions:
-  handlers.LoginResponse:
+  auth.LoginResponse:
     properties:
       token:
         type: string
       user:
         $ref: '#/definitions/models.User'
     type: object
-  handlers.createUserRequest:
-    properties:
-      email:
-        type: string
-      first_name:
-        minLength: 1
-        type: string
-      last_name:
-        minLength: 1
-        type: string
-      password:
-        minLength: 8
-        type: string
-      role:
-        allOf:
-        - $ref: '#/definitions/models.Roles'
-        enum:
-        - admin
-        - manager
-        - staff
-      username:
-        minLength: 3
-        type: string
-    required:
-    - email
-    - first_name
-    - last_name
-    - password
-    - role
-    - username
-    type: object
-  handlers.loginRequest:
+  auth.loginRequest:
     properties:
       password:
         minLength: 1
@@ -48,18 +17,6 @@ definitions:
     required:
     - password
     - username_or_email
-    type: object
-  handlers.updateRoleRequest:
-    properties:
-      role:
-        allOf:
-        - $ref: '#/definitions/models.Roles'
-        enum:
-        - admin
-        - manager
-        - staff
-    required:
-    - role
     type: object
   models.Roles:
     enum:
@@ -103,6 +60,49 @@ definitions:
       total_pages:
         type: integer
     type: object
+  user.createUserRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        minLength: 1
+        type: string
+      last_name:
+        minLength: 1
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/models.Roles'
+        enum:
+        - admin
+        - manager
+        - staff
+      username:
+        minLength: 3
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    - role
+    - username
+    type: object
+  user.updateRoleRequest:
+    properties:
+      role:
+        allOf:
+        - $ref: '#/definitions/models.Roles'
+        enum:
+        - admin
+        - manager
+        - staff
+    required:
+    - role
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -122,7 +122,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.loginRequest'
+          $ref: '#/definitions/auth.loginRequest'
       produces:
       - application/json
       responses:
@@ -131,7 +131,7 @@ paths:
           schema:
             properties:
               data:
-                $ref: '#/definitions/handlers.LoginResponse'
+                $ref: '#/definitions/auth.LoginResponse'
             type: object
         "400":
           description: Bad Request
@@ -269,7 +269,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.createUserRequest'
+          $ref: '#/definitions/user.createUserRequest'
       produces:
       - application/json
       responses:
@@ -349,7 +349,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.updateRoleRequest'
+          $ref: '#/definitions/user.updateRoleRequest'
       produces:
       - application/json
       responses:
