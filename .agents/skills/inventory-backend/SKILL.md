@@ -19,6 +19,27 @@ description: >-
 
 Project-specific backend conventions for the Inventory Management System. Scoped to `backend/` in this repo — not a general Go/Gin skill. Pairs with the `inventory-frontend` skill on the other side of the API boundary.
 
+## Package layout (domain-based, non-negotiable)
+
+Organize by feature, not by layer. Each domain is a self-contained package under `internal/<domain>/` containing `handler.go`, `service.go`, `repository.go` (omit repository only when the domain has no persistence), and `routes.go`. This mirrors `design.md` §3.2/§5 and `AGENTS.md` ground rule 1:
+
+```
+internal/
+├── auth/      handler.go, service.go, routes.go
+├── user/      handler.go, service.go, repository.go, routes.go
+├── product/   handler.go, service.go, repository.go, routes.go
+├── ...
+├── models/    shared GORM entities + sentinel errors (never imports a domain)
+├── middleware/ JWTAuthMiddleware, RequireRole, CORS, logger, recovery
+├── router/    Gin engine setup + domain DI/route mounting
+└── utils/
+    ├── auth/     bcrypt + JWT utilities
+    ├── logger/   zerolog wrapper + LogError
+    └── response/ envelopes + shared RespondError/BindJSON
+```
+
+Cross-domain dependencies form a DAG (e.g. `auth -> user`, `sale -> inventory, product, customer`); depend on the target domain's exported interface and never create a reverse or circular import. See `design.md` §3.1.
+
 ## When generating new code
 
 Follow AGENTS.md's Feature Implementation Order for anything beyond a one-line fix:
@@ -30,12 +51,12 @@ Migration → Repository (+tests) → Service (+tests) → Handler (+tests) → 
 Decision path for a single new piece of code:
 
 1. **Touches the database schema?** → a new versioned migration pair under `migrations/`. Never edit an applied migration; add a new one.
-2. **Reads/writes rows?** → a method on the relevant repository interface + struct under `internal/repositories/`. See `templates/repository.template.go`.
-3. **Makes a business decision** (can this happen, is there enough stock, is this allowed)? → a method on the relevant service under `internal/services/`, depending on repository *interfaces* (DIP), never a concrete GORM type. See `templates/service.template.go`.
-4. **Exposes an HTTP endpoint?** → a Gin handler under `internal/handlers/`, plus a route registration and a Swagger annotation block. See `templates/handler.template.go`.
+2. **Reads/writes rows?** → a method on the relevant repository interface + struct in the owning domain package at `internal/<domain>/repository.go`. See `templates/repository.template.go`.
+3. **Makes a business decision** (can this happen, is there enough stock, is this allowed)? → a method on the relevant service in the owning domain package at `internal/<domain>/service.go`, depending on repository *interfaces* (DIP), never a concrete GORM type. See `templates/service.template.go`.
+4. **Exposes an HTTP endpoint?** → a Gin handler in the owning domain package at `internal/<domain>/handler.go`, plus a route registration (`internal/<domain>/routes.go`) and a Swagger annotation block. See `templates/handler.template.go`.
 5. **Multiple records must change together** (sale + sale items + inventory; purchase receipt + inventory)? → wrap the repository calls in a `db.Transaction(...)` inside the **service**, never in the handler or repository. See the transaction example in `templates/service.template.go`.
 
-Always check `internal/repositories/`, `internal/services/`, and `internal/models/errors.go` (or equivalent) for something that already covers the need before adding a new file or a new sentinel error.
+Always check the owning `internal/<domain>/` package and `internal/models/errors.go` for something that already covers the need before adding a new file or a new sentinel error.
 
 ## Layering rules (non-negotiable)
 
@@ -51,7 +72,7 @@ If asked to "just quickly" query the database from a handler for convenience, do
 
 ## Error handling conventions
 
-- Sentinel errors live in one place (e.g. `internal/models/errors.go` or `internal/services/errors.go`) and are reused, not redefined per feature:
+- Sentinel errors live in one place (`internal/models/errors.go`, or a domain-local `errors.go` for domain-specific ones) and are reused, not redefined per feature:
   ```go
   var (
       ErrNotFound              = errors.New("resource not found")
@@ -84,7 +105,7 @@ For significant business events that aren't failures (sale completed, purchase r
 
 ## API & Swagger conventions
 
-- Routes under `/api/v1/...`, grouped by resource in `internal/handlers/routes.go` (or equivalent router setup).
+- Routes under `/api/v1/...`, grouped by resource in the owning domain's `internal/<domain>/routes.go`, mounted by `internal/router` (which also performs dependency injection).
 - Every handler gets a `swaggo`-style comment block directly above it (method, path, summary, request body, response codes/shapes) — see `templates/handler.template.go`.
 - **Swagger generation is not automatic.** `swag init` only regenerates `docs/` when you explicitly run it — editing an annotation comment does nothing on its own. Run it via a Makefile target (`make swagger`) before committing handler changes, and add a CI check that fails the build if generated docs are stale. See `templates/swagger-regen.template.txt`.
 - All responses go through `internal/utils/response` (see `templates/response.template.go`) — never build the envelope with raw `gin.H{...}` in a handler:
@@ -126,6 +147,8 @@ Report findings as a short, concrete list — then apply fixes if asked to fix r
 ## Templates
 
 Read the relevant template before writing the corresponding file — they encode the exact interface shapes, error handling, and logging calls used across this codebase:
+
+> **Note:** the template files still show the old layer-named packages (`internal/repositories`, `internal/services`, `internal/handlers`). Their bodies are correct, but always create the file inside the owning **domain package** from the layout above (e.g. `internal/product/repository.go` with `package product`) and adjust imports to `i_m_s/internal/...`.
 
 - `templates/repository.template.go` — repository interface + GORM implementation
 - `templates/service.template.go` — service with DI, sentinel errors, transaction + logging example

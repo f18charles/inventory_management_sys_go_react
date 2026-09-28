@@ -13,7 +13,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"inventory/internal/models"
+	"i_m_s/internal/models"
 )
 
 // Interface, not just a struct — this is what lets services depend on an

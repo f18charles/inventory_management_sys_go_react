@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"inventory/internal/models"
-	"inventory/internal/services"
-	"inventory/internal/utils/response"
+	"i_m_s/internal/models"
+	"i_m_s/internal/services"
+	"i_m_s/internal/utils/response"
 )
 
 type SaleHandler struct {

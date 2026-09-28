@@ -12,9 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 
-	"inventory/internal/models"
-	"inventory/internal/repositories"
-	"inventory/internal/utils/logger"
+	"i_m_s/internal/models"
+	"i_m_s/internal/repositories"
+	"i_m_s/internal/utils/logger"
 )
 
 type SaleService struct {

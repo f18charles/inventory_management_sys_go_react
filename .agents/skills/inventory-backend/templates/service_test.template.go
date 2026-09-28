@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"inventory/internal/models"
-	"inventory/internal/services"
+	"i_m_s/internal/models"
+	"i_m_s/internal/services"
 )
 
 // Mock satisfying the InventoryRepository interface.
