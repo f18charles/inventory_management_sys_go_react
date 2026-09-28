@@ -3,13 +3,17 @@
 export
 
 # Database defaults
+# DATABASE_URL (Neon PostgreSQL) takes precedence for the application/migrations.
+# TEST_DATABASE_URL (local PostgreSQL) is used by `make test`.
+DATABASE_URL ?=
+TEST_DATABASE_URL ?=
 DB_HOST ?= localhost
 DB_PORT ?= 5432
 DB_USER ?= postgres
 DB_PASSWORD ?= postgres
 DB_NAME ?= inventory
 DB_SSLMODE ?= disable
-DB_URL ?= postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
+DB_URL ?= $(if $(DATABASE_URL),$(DATABASE_URL),postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE))
 
 # Migrations configuration
 MIGRATIONS_DIR := backend/internal/database/migrations
@@ -85,12 +89,12 @@ migrate-create: ## Create new migration: make migrate-create NAME=create_foo
 .PHONY: build
 build: ## Build backend binary
 	@echo "Building backend..."
-	cd backend && go build -o bin/api cmd/i_m_s/main.go
+	cd backend && go build -o bin/api cmd/server/main.go
 
 .PHONY: run
 run: ## Run backend server
 	@echo "Starting backend..."
-	cd backend && go run cmd/i_m_s/main.go
+	cd backend && go run cmd/server/main.go
 
 .PHONY: test
 test: ## Run backend tests
@@ -111,7 +115,7 @@ tidy: ## Go mod tidy
 .PHONY: swagger
 swagger: ## Generate Swagger API documentation
 	@echo "Generating Swagger documentation..."
-	cd backend && swag init -g cmd/i_m_s/main.go -o docs
+	cd backend && swag init -g cmd/server/main.go -o docs
 
 .PHONY: clean
 clean: ## Clean binaries and coverage reports

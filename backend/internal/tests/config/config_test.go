@@ -15,6 +15,7 @@ func TestLoadDefaults(t *testing.T) {
 	envKeys := []string{
 		"APP_ENV", "APP_PORT", "DB_HOST", "DB_PORT",
 		"DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
+		"DATABASE_URL", "TEST_DATABASE_URL",
 		"JWT_SECRET", "JWT_EXPIRATION",
 	}
 	for _, key := range envKeys {
@@ -45,4 +46,37 @@ func TestConfigDSN(t *testing.T) {
 
 	expectedDSN := "host=127.0.0.1 port=5433 user=testuser password=secretpassword dbname=testdb sslmode=require"
 	assert.Equal(t, expectedDSN, cfg.DSN())
+}
+
+func TestDSNPrefersDatabaseURL(t *testing.T) {
+	cfg := &config.Config{
+		DatabaseURL: "postgresql://neon_user:pw@ep-abc.neon.tech/neondb?sslmode=require",
+		DBHost:      "localhost",
+		DBName:      "ignored",
+	}
+
+	assert.Equal(t, cfg.DatabaseURL, cfg.DSN())
+}
+
+func TestDSNFallsBackToDiscreteFields(t *testing.T) {
+	cfg := &config.Config{
+		DBHost:    "127.0.0.1",
+		DBPort:    "5432",
+		DBUser:    "postgres",
+		DBName:    "inventory",
+		DBSSLMode: "disable",
+	}
+
+	assert.Equal(t,
+		"host=127.0.0.1 port=5432 user=postgres password= dbname=inventory sslmode=disable",
+		cfg.DSN())
+}
+
+func TestTestDSNPrefersTestDatabaseURL(t *testing.T) {
+	cfg := &config.Config{
+		DatabaseURL:     "postgresql://neon_user:pw@ep-abc.neon.tech/neondb?sslmode=require",
+		TestDatabaseURL: "postgres://postgres:postgres@localhost:5432/inventory_test?sslmode=disable",
+	}
+
+	assert.Equal(t, cfg.TestDatabaseURL, cfg.TestDSN())
 }
