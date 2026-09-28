@@ -4,7 +4,7 @@
 // Always handles loading and error states explicitly.
 
 import { useState } from 'react';
-import { useProducts } from '../api/products';
+import { useProducts } from '../hooks/products';
 import { ProductTable } from '../components/ProductTable';
 import { ProductFilters } from '../components/ProductFilters';
 import { Spinner } from '../components/Spinner';

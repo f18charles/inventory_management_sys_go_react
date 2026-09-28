@@ -25,35 +25,37 @@ Project-specific frontend conventions for the Inventory Management System. This 
 Follow this decision path for any new frontend feature:
 
 1. **Does it need a route?** → new file under `src/routes/` (TanStack Router file-based routing). See `templates/route.template.jsx`.
-2. **Does it need server data?** → a query/mutation hook under `src/api/` using TanStack Query, calling the shared API client. See `templates/query-hook.template.js` and `templates/api-client.template.js`.
+2. **Does it need server data?** → a query/mutation hook under `src/hooks/` using TanStack Query, calling the shared API client in `src/api/client.js`. See `templates/query-hook.template.js` and `templates/api-client.template.js`.
 3. **Does it need shared client-side state** (not server data — auth session, UI toggles, multi-step form state)? → a Zustand store under `src/stores/`. See `templates/zustand-store.template.js`. **Do not** put server data (products, sales, inventory) in Zustand — that's TanStack Query's job. Zustand is for client-only state.
 4. **Is it a reusable piece of UI** with no route of its own? → `src/components/`.
 5. **Is it a full route-level view** composed of components + hooks? → `src/pages/`, imported by the matching file in `src/routes/`.
 6. **Is it a shared shell** (e.g. the authenticated app chrome, the auth/login shell)? → `src/layouts/`.
 
-Always check `src/api/`, `src/stores/`, and `src/components/` for something that already does what's needed before creating a new file — don't duplicate an existing hook or store slice.
+Always check `src/hooks/`, `src/api/`, `src/stores/`, and `src/components/` for something that already does what's needed before creating a new file — don't duplicate an existing hook or store slice.
 
-## Folder structure (authoritative)
+## Folder structure (authoritative — matches design.md §5)
 
 ```
 frontend/src/
+├── api/          # axios client instance (client.js) with auth + envelope interceptors
+├── hooks/        # TanStack Query domain hooks (useProducts, useSales, ...) + custom hooks
 ├── components/   # reusable, route-agnostic UI
 ├── pages/        # route-level views (composition only, minimal logic)
 ├── layouts/      # shared shells (AppLayout, AuthLayout)
-├── hooks/        # non-API custom hooks (e.g. useDebounce, useMediaQuery)
 ├── stores/       # Zustand stores — client state only
 ├── routes/       # TanStack Router route files (file-based)
-├── api/          # API client + TanStack Query hooks (server state)
 ├── utils/        # pure helper functions (formatCurrency, formatDate, etc.)
 └── types/        # JSDoc typedefs for shared shapes (no TypeScript in this repo)
 ```
+
+`design.md` §5 defines `api/` as the axios client and `hooks/` as the TanStack Query hooks — keep server-fetching hooks in `hooks/`, not `api/`.
 
 ## API layer conventions
 
 - **One shared axios instance** (`src/api/client.js`, see `templates/api-client.template.js`): `axios.create` with `baseURL` = `/api/v1`, a request interceptor that attaches the auth token from the auth store, and a response interceptor that unwraps the backend's `data` envelope and normalizes errors.
 - Backend responses are always `{ "data": ... }` on success or `{ "error": { "code": "...", "message": "..." } }` on failure (per AGENTS.md). The response interceptor unwraps `response.data.data` on success, and on failure reads `error.response.data.error` and rejects with a normalized `ApiError` (carrying `code`, `message`, `status`) — so calling code never touches axios's `error.response` shape or the raw envelope directly.
 - **Never import `axios` directly in a component or call `axios.get/post` ad hoc.** Every backend call goes through the shared instance, wrapped in a TanStack Query hook.
-- One hook file per resource (`src/api/products.js`, `src/api/sales.js`, ...), exporting query hooks (`useProducts`, `useProduct(id)`) and mutation hooks (`useCreateProduct`) — see `templates/query-hook.template.js`.
+- One hook file per resource (`src/hooks/products.js`, `src/hooks/sales.js`, ...), exporting query hooks (`useProducts`, `useProduct(id)`) and mutation hooks (`useCreateProduct`) — see `templates/query-hook.template.js`.
 - Query keys are arrays scoped by resource and params, e.g. `['products', { categoryId }]`, so invalidation after a mutation is precise (`queryClient.invalidateQueries({ queryKey: ['products'] })`), not a blanket refetch-everything.
 - Money values from the backend are integers (smallest currency unit, per AGENTS.md). Format for display with a shared `formatCurrency` util in `src/utils/` — never do ad-hoc `/100` math inline in a component.
 
@@ -83,6 +85,7 @@ frontend/src/
 When asked to review, or when touching a file for an unrelated reason, check for and flag:
 
 - [ ] `fetch` or `axios` called directly in a component instead of going through `src/api/client.js`
+- [ ] TanStack Query hooks placed in `src/api/` instead of `src/hooks/` (design.md §5)
 - [ ] Server data (products/sales/inventory/etc.) stored in Zustand instead of TanStack Query
 - [ ] A new top-level Zustand store created for something that's really route-local state (should be `useState`/`useReducer` instead)
 - [ ] Money formatted or divided inline instead of via the shared `formatCurrency` util
@@ -97,8 +100,8 @@ Report findings as a short list of concrete fixes, not a lecture — then apply 
 
 Read the relevant template before writing the corresponding file type — they encode exact import paths and naming conventions used across this codebase, not just illustrative examples:
 
-- `templates/api-client.template.js` — shared axios instance + interceptors + `ApiError`
-- `templates/query-hook.template.js` — TanStack Query hooks for a resource
+- `templates/api-client.template.js` — shared axios instance (`src/api/client.js`) + interceptors + `ApiError`
+- `templates/query-hook.template.js` — TanStack Query hooks for a resource (`src/hooks/<resource>.js`)
 - `templates/zustand-store.template.js` — Zustand store shape/conventions
 - `templates/route.template.jsx` — thin TanStack Router route file
 - `templates/page.template.jsx` — route-level page composing hooks + components

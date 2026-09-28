@@ -1,11 +1,11 @@
-// src/api/products.js
+// src/hooks/products.js
 //
-// One file per backend resource. Export query hooks (reads) and mutation
-// hooks (writes) together so a component only imports from one place.
-// Swap "products" / "Product" for the actual resource when using this.
+// One file per backend resource, under src/hooks/ (design.md §5). Export query
+// hooks (reads) and mutation hooks (writes) together so a component only
+// imports from one place. Swap "products" / "Product" for the actual resource.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from './client';
+import { api } from '../api/client';
 
 const productsKey = (params) => ['products', params ?? {}];
 const productKey = (id) => ['products', id];

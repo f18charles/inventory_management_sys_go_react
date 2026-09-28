@@ -1,28 +1,29 @@
-// internal/handlers/sale_handler.go
+// internal/sale/handler.go
 //
-// Handlers: bind/validate, call ONE service method, translate the result to
-// the standard envelope. No db calls, no business logic, no gin-specific
-// leakage into the service layer.
+// Handlers live INSIDE the owning domain package. They bind/validate the
+// request, call ONE service method, and translate the result to the standard
+// envelope via internal/utils/response. No db calls, no business logic, and no
+// Gin types ever cross into the service layer.
 
-package handlers
+package sale
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
+	"i_m_s/internal/middleware"
 	"i_m_s/internal/models"
-	"i_m_s/internal/services"
 	"i_m_s/internal/utils/response"
 )
 
-type SaleHandler struct {
-	saleService *services.SaleService
+type Handler struct {
+	service *Service // same package — the domain's service
 }
 
-func NewSaleHandler(saleService *services.SaleService) *SaleHandler {
-	return &SaleHandler{saleService: saleService}
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
 }
 
 type createSaleRequest struct {
@@ -39,32 +40,33 @@ type createSaleRequest struct {
 // @Tags         sales
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        request body createSaleRequest true "Sale details"
 // @Success      201 {object} object{data=models.Sale}
 // @Failure      400 {object} object{error=object{code=string,message=string}}
 // @Failure      409 {object} object{error=object{code=string,message=string}} "insufficient inventory"
-// @Router       /api/v1/sales [post]
-func (h *SaleHandler) CreateSale(c *gin.Context) {
+// @Router       /sales [post]
+func (h *Handler) CreateSale(c *gin.Context) {
 	var req createSaleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	// BindJSON writes the standard INVALID_REQUEST envelope and returns false.
+	if !response.BindJSON(c, &req) {
 		return
 	}
 
-	userID := c.GetString("user_id") // set by auth middleware
-
-	items := make([]services.SaleItemInput, 0, len(req.Items))
+	items := make([]SaleItemInput, 0, len(req.Items))
 	for _, i := range req.Items {
-		items = append(items, services.SaleItemInput{ProductID: i.ProductID, Quantity: i.Quantity})
+		items = append(items, SaleItemInput{ProductID: uuid.MustParse(i.ProductID), Quantity: i.Quantity})
 	}
 
-	sale, err := h.saleService.CreateSale(c.Request.Context(), services.CreateSaleInput{
-		CustomerID: req.CustomerID,
-		UserID:     userID,
+	sale, err := h.service.CreateSale(c.Request.Context(), CreateSaleInput{
+		CustomerID: uuid.MustParse(req.CustomerID),
+		UserID:     currentUserID(c),
 		Items:      items,
 	})
 	if err != nil {
-		respondServiceError(c, err)
+		// RespondError is the single shared mapping from domain sentinels to
+		// HTTP status + envelope — never hand-roll a switch per handler.
+		response.RespondError(c, err)
 		return
 	}
 
@@ -75,45 +77,32 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 // @Summary      List sales
 // @Tags         sales
 // @Produce      json
+// @Security     BearerAuth
 // @Param        page query int false "Page number" default(1)
 // @Param        page_size query int false "Items per page" default(20)
 // @Success      200 {object} object{data=[]models.Sale,meta=response.PaginationMeta}
-// @Router       /api/v1/sales [get]
-func (h *SaleHandler) ListSales(c *gin.Context) {
+// @Router       /sales [get]
+func (h *Handler) ListSales(c *gin.Context) {
 	page := queryInt(c, "page", 1)
 	pageSize := queryInt(c, "page_size", 20)
 
-	sales, totalItems, err := h.saleService.ListSales(c.Request.Context(), page, pageSize)
+	sales, totalItems, err := h.service.ListSales(c.Request.Context(), page, pageSize)
 	if err != nil {
-		respondServiceError(c, err)
+		response.RespondError(c, err)
 		return
 	}
 
 	response.Paginated(c, http.StatusOK, sales, response.NewPaginationMeta(page, pageSize, totalItems))
 }
 
-func queryInt(c *gin.Context, key string, fallback int) int {
-	// Implementation detail (strconv.Atoi + fallback on error) omitted —
-	// the point being illustrated is where page/page_size parsing belongs.
-	return fallback
+// currentUserID reads the id attached by JWTAuthMiddleware. Query/param
+// parsing helpers (queryInt, uuid parsing) stay in the handler layer.
+func currentUserID(c *gin.Context) uuid.UUID {
+	id, _ := uuid.Parse(c.GetString(middleware.ContextUserID))
+	return id
 }
 
-// respondServiceError maps sentinel errors from the service layer to HTTP
-// status codes in ONE place, so handlers don't each hand-roll a switch.
-func respondServiceError(c *gin.Context, err error) {
-	switch {
-	case errors.Is(err, models.ErrNotFound):
-		response.Error(c, http.StatusNotFound, "NOT_FOUND", "resource not found")
-	case errors.Is(err, models.ErrInsufficientInventory):
-		response.Error(c, http.StatusConflict, "INSUFFICIENT_INVENTORY", err.Error())
-	case errors.Is(err, models.ErrUnauthorized):
-		response.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "unauthorized")
-	case errors.Is(err, models.ErrForbidden):
-		response.Error(c, http.StatusForbidden, "FORBIDDEN", "forbidden")
-	default:
-		// Never leak the raw error (SQL text, GORM internals) to the client —
-		// this is unrelated to the logger's dev/prod switch, which only
-		// affects what gets WRITTEN TO LOGS, never what's returned to callers.
-		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "something went wrong")
-	}
+func queryInt(c *gin.Context, key string, fallback int) int {
+	// strconv.Atoi + fallback on error/absent.
+	return fallback
 }

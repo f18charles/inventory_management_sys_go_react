@@ -1,79 +1,63 @@
-// internal/services/sale_service_test.go
+// internal/tests/user/service_test.go
 //
-// Service tests mock the repository INTERFACE — this is the concrete payoff
-// of depending on interfaces (DIP) rather than concrete GORM types. Assert
-// business outcomes, not that method X called method Y.
+// Service tests mock the repository INTERFACE (the payoff of DIP) and assert
+// business outcomes, not call choreography. Shared mocks live in
+// internal/tests/mocks; repository tests that need real SQL live in
+// internal/tests/<domain>/repository_test.go and run against the local test DB.
+//
+// Note: a method that opens a db.Transaction cannot run with a nil *gorm.DB.
+// Cover transaction-owning flows with a repository/integration test against the
+// local PostgreSQL test database (TEST_DATABASE_URL) rather than this mock style.
 
-package services_test
+package user_test
 
 import (
 	"context"
 	"testing"
 
+	"i_m_s/internal/models"
+	"i_m_s/internal/tests/mocks"
+	"i_m_s/internal/user"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
-
-	"i_m_s/internal/models"
-	"i_m_s/internal/services"
 )
 
-// Mock satisfying the InventoryRepository interface.
-type mockInventoryRepo struct{ mock.Mock }
-
-func (m *mockInventoryRepo) GetByProductID(ctx context.Context, db *gorm.DB, productID string) (*models.Inventory, error) {
-	args := m.Called(ctx, db, productID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.Inventory), args.Error(1)
-}
-
-func (m *mockInventoryRepo) Decrease(ctx context.Context, db *gorm.DB, productID string, qty int) error {
-	args := m.Called(ctx, db, productID, qty)
-	return args.Error(0)
-}
-
-func TestCreateSale_RejectsWhenInsufficientStock(t *testing.T) {
-	// Arrange: stock is 2, sale requests 5.
-	invRepo := new(mockInventoryRepo)
-	invRepo.On("GetByProductID", mock.Anything, mock.Anything, "product-1").
-		Return(&models.Inventory{ProductID: "product-1", Quantity: 2}, nil)
-
-	svc := services.NewSaleService(nil, nil, nil, invRepo) // db/saleRepo/productRepo omitted for this table case
+func TestService_CreateUserRejectsDuplicateUsername(t *testing.T) {
+	// Arrange: the repository reports the username already exists.
+	repo := new(mocks.UserRepository)
+	repo.On("GetByUsername", mock.Anything, mock.Anything, "grace").Return(&models.User{}, nil)
 
 	// Act
-	_, err := svc.CreateSale(context.Background(), services.CreateSaleInput{
-		CustomerID: "customer-1",
-		Items: []services.SaleItemInput{
-			{ProductID: "product-1", Quantity: 5},
-		},
+	_, err := user.NewService(nil, repo).CreateUser(context.Background(), user.CreateUserInput{
+		FirstName: "Grace",
+		LastName:  "Hopper",
+		Username:  "grace",
+		Email:     "grace@example.com",
+		Password:  "plaintext-password",
+		Role:      models.Staff,
 	})
 
-	// Assert: the business rule was enforced, not just "no panic".
-	require.Error(t, err)
-	assert.ErrorIs(t, err, models.ErrInsufficientInventory)
-	invRepo.AssertNotCalled(t, "Decrease", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	// Assert: the business rule was enforced, and no write happened.
+	assert.ErrorIs(t, err, models.ErrConflict)
+	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything)
 }
 
 // Table-driven pattern for multiple cases on the same behavior:
-func TestCreateSale_StockCases(t *testing.T) {
-	cases := []struct {
-		name      string
-		available int
-		requested int
-		wantErr   error
-	}{
-		{"exact match succeeds", 5, 5, nil},
-		{"more than available fails", 3, 5, models.ErrInsufficientInventory},
-		{"zero available fails", 0, 1, models.ErrInsufficientInventory},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			// ...set up mocks per-case using tc.available / tc.requested,
-			// then assert errors.Is(err, tc.wantErr) or require.NoError(t, err).
-		})
-	}
-}
+//
+//	func TestService_CreateUser(t *testing.T) {
+//		cases := []struct {
+//			name      string
+//			userExists bool
+//			wantErr   error
+//		}{
+//			{"unique username succeeds", false, nil},
+//			{"duplicate username conflicts", true, models.ErrConflict},
+//		}
+//		for _, tc := range cases {
+//			t.Run(tc.name, func(t *testing.T) {
+//				// set up mocks per-case using tc, then assert errors.Is(err, tc.wantErr)
+//				// or require.NoError(t, err).
+//			})
+//		}
+//	}
